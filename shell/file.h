@@ -12,7 +12,8 @@ enum file_error {
     FileErorrPermition = 2,
     FileErrorType = 3,
     FileErrorConvert = 4,
-    FileErrorOverSize = 5
+    FileErrorOverSize = 5,
+    FileErrorNotSupported = 6
 };
 
 typedef enum file_error file_error_t;
@@ -29,30 +30,40 @@ enum file_access {
     FileAccessWrite = 0x04,
     FileAccessWriteAndRead = 0x06,
     FileAccessFull = 0x07,
-    // 特殊なフラグ
-    FileAccessDevice = 0x08,  // ファイルをデバイスファイル用に扱う場合
     FileAccessMask = 0x0F,
 
 };
 typedef enum file_access file_access_t;
+
+/* file_special
+ * ファイルの実装方法について
+ */
+
+enum file_special {
+    FileSpecialVariable = 0x10,  // implをそのまま利用する
+    FileSpecialPointer = 0x20,   // implをポインタとして利用する
+    FileSpecialDevice = 0x30,  // デバイスファイルとして利用する
+    FileSpecialMask = 0xF0,
+};
 
 /* file_type
  * 疑似ファイルもといポインターをどのように扱うか決める列挙型です
  */
 
 enum file_type {
-    FileTypeExcute = 0x00,
-    FileTypeDirectory = 0x10,
-    FileTypeBool = 0x20,
-    FileTypeInt = 0x30,
-    FileTypeFloat = 0x40,
-    FileTypeText = 0x50,
+    FileTypeExcute = 0x0100,
+    FileTypeDirectory = 0x0200,
+    FileTypeBool = 0x0300,
+    FileTypeInt = 0x0400,
+    FileTypeFloat = 0x0500,
+    FileTypeText = 0x0600,
     /* Reserved */
-    FileTypeMask = 0xf0,
+    FileTypeMask = 0xff00,
 };
 
 typedef enum file_type file_type_t;
 
+typedef enum file_special file_special_t;
 /* file_flag_t
  * file_typeとfile_accessをまとめたもの
  */

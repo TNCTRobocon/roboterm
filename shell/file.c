@@ -7,8 +7,9 @@
 
 const char* file_error_message(file_error_t error) {
     static const char* messages[] = {
-        "ok",         "null pointer",  "without permition",
-        "type error", "convert error", "over size"};
+        "ok",           "null pointer",  "without permition",
+        "type error",   "convert error", "over size",
+        "not surppered"};
     const size_t index = (size_t)error;
     return index < lengthof(messages) ? messages[index]
                                       : "out of error message";
@@ -40,7 +41,7 @@ int file_node_excute(file_node_t* fp, int argc, char** argv) {
         return FileErorrPermition;
     }
 
-    if ((fp->flags & FileAccessDevice) == FileAccessDevice) {
+    if ((fp->flags & FileSpecialDevice) == FileSpecialDevice) {
         // device fileとして扱う
         const file_device_t* device = (file_device_t*)fp->impl;
         if (!device->write) {
@@ -63,34 +64,59 @@ int file_node_write(file_node_t* fp, const char* str) {
     if ((fp->flags & FileAccessWrite) != FileAccessWrite) {
         return FileErorrPermition;
     }
+    const file_special_t special = fp->flags & FileSpecialMask;
     const file_type_t type = fp->flags & FileTypeMask;
-
-    if ((fp->flags & FileAccessDevice) == FileAccessDevice) {
-        // device fileとして扱う
-        const file_device_t* device = (file_device_t*)fp->impl;
-        if (!device->write) {
-            return FileErrorNull;
+    switch (special) {
+        case FileSpecialDevice: {
+            const file_device_t* device = (file_device_t*)fp->impl;
+            if (!device->write) {
+                return FileErrorNull;
+            }
+            return device->write(fp->context, str);
         }
-        return device->write(fp->context, str);
+        case FileSpecialPointer:
+            switch (type) {
+                case FileTypeBool:
+                    *(bool*)fp->impl = str_to_bool(str);
+                    return FileErrorNone;
+                case FileTypeInt:
+                    *(int*)fp->impl = atoi(str);
+                    return FileErrorNone;
+                case FileTypeFloat:
+                    //実装されていない場合はatoiでごまかすと良い
+                    *(float*)fp->impl = atof(str);
+                    return FileErrorNone;
+                case FileTypeText:
+                    strncpy(fp->impl, str, fp->size);
+                    return FileErrorNone;
+                default:
+                    return FileErrorNotSupported;
+            }
+        case FileSpecialVariable:
+            switch (type) {
+                case FileTypeBool: {
+                    bool b = str_to_bool(str);
+                    memcpy(&fp->impl, &b, sizeof(bool));
+                    return FileErrorNone;
+                }
+                case FileTypeInt: {
+                    int i = atoi(str);
+                    memcpy(fp->impl, &i, sizeof(int));
 
-    } else {
-        switch (type) {
-            case FileTypeBool:
-                *(bool*)fp->impl = str_to_bool(str);
-                return FileErrorNone;
-            case FileTypeInt:
-                *(int*)fp->impl = atoi(str);
-                return FileErrorNone;
-            case FileTypeFloat:
-                //実装されていない場合はatoiでごまかすと良い
-                *(float*)fp->impl = atof(str);
-                return FileErrorNone;
-            case FileTypeText:
-                strncpy(fp->impl, str, fp->size);
-                return FileErrorNone;
-            default:
-                return FileErrorType;
-        }
+                    return FileErrorNone;
+                }
+                case FileTypeFloat:
+                    //実装されていない場合はatoiでごまかすと良い
+                    {
+                        float f = atof(str);
+                        memcpy(fp->impl, &f, sizeof(float));
+
+                        return FileErrorNone;
+                    }
+                default:
+                    return FileErrorNotSupported;
+            }
+            break;
     }
 }
 
@@ -102,38 +128,22 @@ int file_node_read(file_node_t* fp, char* str, size_t size) {
         return FileErorrPermition;
     }
     const file_type_t type = fp->flags & FileTypeMask;
-
-    if ((fp->flags & FileAccessDevice) == FileAccessDevice) {
-        // device fileとして扱う
-        const file_device_t* device = (file_device_t*)fp->impl;
-        if (!device->write) {
-            return FileErrorNull;
-        }
-        return device->read(fp->context, str, size);
-
-    } else {
-        return FileErrorType;
-        // switch (type) {
-        // case FileTypeBool:
-        //     if (snprintf(str, size, "%d", *((int_t*)fp->impl)) < 0) {
-        //         return FileErrorOverSize;
-        //     }
-        //     return FileErrorNone;
-        // case FileTypeInt:
-        //     if (snprintf(str, size, "%d", *((int_t*)fp->impl)) < 0) {
-        //         return FileErrorOverSize;
-        //     }
-        //     return FileErrorNone;
-        // case FileTypeFloat:
-        //     if (snprintf(str, size, "%f", *((float*)fp->impl)) < 0) {
-        //         return FileErrorOverSize;
-        //     }
-        //     return FileErrorNone;
-        // case FileTypeText:
-        //     strncpy(str, fp->impl, (size_t)fp->context);
-        //     return FileErrorNone;
-        // default:
-        //     return FileErrorType;
-        //}
+    const file_special_t special = fp->flags & FileSpecialMask;
+    switch (special) {
+        case FileSpecialDevice:
+            // device fileとして扱う
+            {
+                const file_device_t* device = (file_device_t*)fp->impl;
+                if (!device->write) {
+                    return FileErrorNull;
+                }
+                return device->read(fp->context, str, size);
+            }
+        case FileSpecialPointer:
+            return FileErrorNotSupported;
+        case FileSpecialVariable:
+            return FileErrorNotSupported;
+        default:
+            break;
     }
 }

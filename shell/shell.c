@@ -99,12 +99,7 @@ int shell_system(shell_t* shell, const char* orign) {
 int shell_atom(shell_t* shell, char** words, size_t size) {
     if (size == 0) return 0;
 
-    printf("[");
-    printf("%s", words[0]);
-    for (size_t i = 1; i < size; i++) {
-        printf(",%s", words[i]);
-    }
-    printf("]");
+    
     return 0;
 }
 

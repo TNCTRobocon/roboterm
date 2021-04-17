@@ -18,6 +18,8 @@ int fs_init(fs_t* fs) {
 
     // rootの作成
     fs->root = fs_directory_create_default(fs);
+    // binの作成
+    fs_node_t* bin = fs_directory_create_default(fs);
 
     return 0;
 }
@@ -53,7 +55,7 @@ fs_directory_t* fs_create_directory(fs_t* fs, file_access_t access) {
     // file_nodeを初期化する
     file_node_t* node = (file_node_t*)fs_allocate_node(fs);
     if (node == NULL) return NULL;
-    node->flags = FileTypeDirectory | access;
+    node->flags = FileTypeDirectory | FileSpecialVariable | access;
     node->impl = NULL;
     node->parent = NULL;
     return node;
@@ -103,7 +105,7 @@ fs_file_t* fs_create_excute(fs_t* fs,
         return NULL;
     }
     // initialize file
-    file->flags = FileTypeExcute | access;
+    file->flags = FileTypeExcute | FileSpecialPointer | access;
     file->impl = excute;
     file->context = context;
     return file;

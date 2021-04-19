@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 
-#define FILE_NODE_MAX (255)
+#define FILE_NODE_MAX (64)
 
 // バッファリングされる文字列の長さ
 #define PIPE_SIZE (80)

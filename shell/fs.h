@@ -74,11 +74,12 @@ int fs_directory_insert(fs_t* fs,
                         fs_directory_t* dir,
                         fs_file_t* file,
                         const char* name);
+fs_file_t* directory_find(fs_directory_t* dir, const char* name);
 /* directory_iter_t
  * ファイルの列挙に用いる
  */
-typedef file_link_t* directory_iter_t;
-directory_iter_t directory_iter(fs_directory_t* dir);
+typedef file_link_t directory_iter_t;
+directory_iter_t* directory_iter(fs_directory_t* dir);
 
 // 実行ファイル
 fs_file_t* fs_create_excute(fs_t* fs,
@@ -88,5 +89,7 @@ fs_file_t* fs_create_excute(fs_t* fs,
 static inline fs_file_t* fs_create_excute_default(fs_t* fs, excute_t excute) {
     return fs_create_excute(fs, excute, NULL, FileAccessExcute);
 }
+
+fs_file_t* fs_create_link(fs_t* fs, fs_file_t* target);
 
 #endif

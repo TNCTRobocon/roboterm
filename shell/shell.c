@@ -81,6 +81,16 @@ static inline size_t split_by_group(const char* orig,
 int shell_init(shell_t* shell) {
     if (shell == NULL) return -1;
     fs_init(&shell->fs);
+    // varの作成(本来の意味ではなく、変数の意味)
+    fs_t* fs = &shell->fs;
+    fs_directory_t* var = fs_directory_create_default(fs);
+    fs_directory_insert(fs, fs->root, var, "var");
+
+    fs_directory_t* path = fs_directory_create_default(fs);
+    fs_directory_insert(fs, fs->root, path, "path");
+    shell->path = path;
+    fs_file_t* link_bin = fs_create_link(fs, directory_find(fs->root, "bin"));
+    fs_directory_insert(fs, path, link_bin, "bin");
 }
 
 int shell_system(shell_t* shell, const char* orign) {
@@ -98,8 +108,8 @@ int shell_system(shell_t* shell, const char* orign) {
 
 int shell_atom(shell_t* shell, char** words, size_t size) {
     if (size == 0) return 0;
+    // /var/pathに登録されているものを探す
 
-    
     return 0;
 }
 

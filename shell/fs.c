@@ -1,5 +1,11 @@
 #include "fs.h"
 #include <stddef.h>
+#include <stdio.h>  //TODO: あとで消す
+#include <string.h>
+// TODO: あとで消す
+int app_test(void* context, int argc, char** argv) {
+    printf("test\n");
+}
 
 int fs_init(fs_t* fs) {
     //前提条件
@@ -17,9 +23,13 @@ int fs_init(fs_t* fs) {
     nodes[FILE_NODE_MAX - 1].next = NULL;
 
     // rootの作成
-    fs->root = fs_directory_create_default(fs);
+    fs_directory_t* root = fs_directory_create_default(fs);
+    fs->root = root;
     // binの作成
-    fs_node_t* bin = fs_directory_create_default(fs);
+    fs_directory_t* bin = fs_directory_create_default(fs);
+    fs_directory_insert(fs, fs->root, bin, "bin");
+    fs_directory_t* test = fs_create_excute_default(fs, app_test);
+    fs_directory_insert(fs, fs->root, bin, "test");
 
     return 0;
 }
@@ -87,9 +97,19 @@ int fs_directory_insert(fs_t* fs,
     dir->impl = link;
 }
 
-directory_iter_t directory_iter(fs_directory_t* dir) {
+fs_file_t* directory_find(fs_directory_t* dir, const char* name) {
+    for (directory_iter_t* iter = directory_iter(dir); iter != NULL;
+         iter = iter->next) {
+        if (strcmp(iter->name, name) == 0) {
+            return iter->node;
+        }
+    }
+    return NULL;
+}
+
+directory_iter_t* directory_iter(fs_directory_t* dir) {
     if (dir == NULL) return NULL;
-    return (directory_iter_t)dir->impl;
+    return (directory_iter_t*)dir->impl;
 }
 
 fs_file_t* fs_create_excute(fs_t* fs,
@@ -108,5 +128,23 @@ fs_file_t* fs_create_excute(fs_t* fs,
     file->flags = FileTypeExcute | FileSpecialPointer | access;
     file->impl = excute;
     file->context = context;
+    return file;
+}
+
+fs_file_t* fs_create_link(fs_t* fs, fs_file_t* target) {
+    if (fs == NULL || target == NULL) {
+        return NULL;
+    }
+    // allocate file
+    file_node_t* file = fs_allocate_node(fs);
+    if (file == NULL) {
+        return NULL;
+    }
+    // initialize file
+    const file_type_t type = target->flags & FileTypeMask;
+    const file_type_t access = target->flags & FileAccessMask;
+    file->flags = FileSpecialVariable | type | access;
+    file->impl = target;
+    file->context = target;
     return file;
 }

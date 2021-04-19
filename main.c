@@ -6,7 +6,7 @@ int main(int argc, char** argv) {
     shell_t shell;
 
     shell_init(&shell);
-
+    printf("%d", sizeof(void*));
     while (gets(buf) != EOF) {
         shell_system(&shell, buf);
     }

@@ -53,10 +53,11 @@ enum file_special {
 enum file_type {
     FileTypeExcute = 0x0100,
     FileTypeDirectory = 0x0200,
-    FileTypeBool = 0x0300,
-    FileTypeInt = 0x0400,
-    FileTypeFloat = 0x0500,
-    FileTypeText = 0x0600,
+    FileTypeLink = 0x0300,  // softlinkに近い
+    FileTypeBool = 0x0400,
+    FileTypeInt = 0x0500,
+    FileTypeFloat = 0x0600,
+    FileTypeText = 0x0700,
     /* Reserved */
     FileTypeMask = 0xff00,
 };

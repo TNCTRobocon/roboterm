@@ -4,4 +4,5 @@ add_library(shell STATIC
   fs.c
   io.c
   shell.c
+  pool.c
 )

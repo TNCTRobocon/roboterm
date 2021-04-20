@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include "ctype.h"
+#include "pool.h"
 #define lengthof(x) sizeof(x) / sizeof(x[0])
 
 const char* file_error_message(file_error_t error) {
@@ -33,117 +34,83 @@ static bool str_to_bool(const char* str) {
     return atoi(str) != 0;
 }
 
-int file_node_excute(file_node_t* fp, int argc, char** argv) {
-    if (!fp) {
-        return FileErrorNull;
-    }
-    if ((fp->flags & FileAccessExcute) != FileAccessExcute) {
-        return FileErorrPermition;
-    }
-
-    if ((fp->flags & FileSpecialDevice) == FileSpecialDevice) {
-        // device fileとして扱う
-        const file_device_t* device = (file_device_t*)fp->impl;
-        if (!device->write) {
-            return FileErrorNull;
-        }
-        return device->excute(fp->context, argc, argv);
-
-    } else {
-        const file_type_t type = fp->flags & FileTypeMask;
-        if (type == FileTypeExcute) {
-            return ((excute_t)fp->impl)(fp->context, argc, argv);
-        }
-    }
+int file_header_compare(const file_header_t* a, const file_header_t* b) {
+    return strcmp(a->name, b->name);
 }
 
-int file_node_write(file_node_t* fp, const char* str) {
-    if (!fp) {
-        return FileErrorNull;
-    }
-    if ((fp->flags & FileAccessWrite) != FileAccessWrite) {
-        return FileErorrPermition;
-    }
-    const file_special_t special = fp->flags & FileSpecialMask;
-    const file_type_t type = fp->flags & FileTypeMask;
-    switch (special) {
-        case FileSpecialDevice: {
-            const file_device_t* device = (file_device_t*)fp->impl;
-            if (!device->write) {
-                return FileErrorNull;
-            }
-            return device->write(fp->context, str);
-        }
-        case FileSpecialPointer:
-            switch (type) {
-                case FileTypeBool:
-                    *(bool*)fp->impl = str_to_bool(str);
-                    return FileErrorNone;
-                case FileTypeInt:
-                    *(int*)fp->impl = atoi(str);
-                    return FileErrorNone;
-                case FileTypeFloat:
-                    //実装されていない場合はatoiでごまかすと良い
-                    *(float*)fp->impl = atof(str);
-                    return FileErrorNone;
-                case FileTypeText:
-                    strncpy(fp->impl, str, fp->size);
-                    return FileErrorNone;
-                default:
-                    return FileErrorNotSupported;
-            }
-        case FileSpecialVariable:
-            switch (type) {
-                case FileTypeBool: {
-                    bool b = str_to_bool(str);
-                    memcpy(&fp->impl, &b, sizeof(bool));
-                    return FileErrorNone;
-                }
-                case FileTypeInt: {
-                    int i = atoi(str);
-                    memcpy(fp->impl, &i, sizeof(int));
-
-                    return FileErrorNone;
-                }
-                case FileTypeFloat:
-                    //実装されていない場合はatoiでごまかすと良い
-                    {
-                        float f = atof(str);
-                        memcpy(fp->impl, &f, sizeof(float));
-
-                        return FileErrorNone;
-                    }
-                default:
-                    return FileErrorNotSupported;
-            }
-            break;
-    }
+int file_header_compare_name(const char* str, const file_header_t* hp) {
+    return strcmp(str, hp->name);
 }
 
-int file_node_read(file_node_t* fp, char* str, size_t size) {
-    if (!fp) {
-        return FileErrorNull;
-    }
-    if ((fp->flags & FileAccessRead) != FileAccessRead) {
-        return FileErorrPermition;
-    }
-    const file_type_t type = fp->flags & FileTypeMask;
-    const file_special_t special = fp->flags & FileSpecialMask;
-    switch (special) {
-        case FileSpecialDevice:
-            // device fileとして扱う
-            {
-                const file_device_t* device = (file_device_t*)fp->impl;
-                if (!device->write) {
-                    return FileErrorNull;
-                }
-                return device->read(fp->context, str, size);
-            }
-        case FileSpecialPointer:
-            return FileErrorNotSupported;
-        case FileSpecialVariable:
-            return FileErrorNotSupported;
-        default:
-            break;
-    }
+#pragma region file_directory
+
+file_directory_t* file_directory_create(pool_t* p,
+                                        const char* name,
+                                        size_t reserved,
+                                        uint8_t access) {
+    if (!p || !name || reserved == 0) return NULL;
+
+    file_directory_t* dp = (file_directory_t*)pool_malloc(
+        p, sizeof(file_directory_t) + reserved * sizeof(file_header_t*));
+    if (!dp) return NULL;
+    dp->header.access = access;
+    dp->header.type = FileTypeDirectory;
+    dp->header.name = name;
+    dp->reserved = reserved;
+    dp->used = 0;
+    return dp;
 }
+
+file_directory_t* file_directory_add_files(file_directory_t* dp,
+                                           file_header_t** files,
+                                           size_t size) {
+    // 前提条件
+    if (!dp || !files) return NULL;
+    if (size == 0 || dp->used + size >= dp->reserved) return NULL;
+    // 統合
+    memcpy(&dp->files[dp->used], files, size * sizeof(file_header_t*));
+    dp->used += size;
+    //ソート
+    qsort(&dp->files[0], dp->used, sizeof(file_header_t*),
+          (int (*)(const void*, const void*))file_header_compare);
+    return dp;
+}
+
+file_directory_t* file_directory_add(file_directory_t* dp,
+                                     file_header_t* files) {
+    if (!dp || !files) return NULL;
+    return file_directory_add_files(dp, &files, 1);
+}
+
+file_header_t* file_directory_find(file_directory_t* dp, const char* name) {
+    if (!dp || !name) return NULL;
+
+    return (file_header_t*)bsearch(
+        name, &dp->files[0], dp->used, sizeof(file_header_t*),
+        (int (*)(const void*, const void*))file_header_compare_name);
+}
+
+#pragma endregion
+
+#pragma region file_excute
+
+file_excute_t* file_excute_create(pool_t* p,
+                                  const char* name,
+                                  excute_t excute,
+                                  void* context) {
+    if (!name) return NULL;
+    file_excute_t* fp = (file_excute_t*)pool_malloc(p, sizeof(file_excute_t));
+    if (!fp) return NULL;
+    fp->header.name = name;
+    fp->header.access = excute ? 1 : 0;
+    fp->header.type = FileTypeExcute;
+    fp->excute = excute;
+    fp->context = context;
+    return fp;
+}
+
+int file_excute_excute(file_excute_t* ep, int argc, char** argv) {
+    return ep->excute(ep->context, argc, argv);
+}
+
+#pragma endregion

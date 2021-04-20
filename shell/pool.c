@@ -1,11 +1,13 @@
 #include "pool.h"
+#include <string.h>
 #include "config.h"
-
 pool_t* pool_init(pool_t* p, void* mem, size_t size) {
     if (!p || !mem | size == 0) return NULL;
     p->used = 0;
     p->size = size;
     p->mem = (char*)mem;
+
+    memset(mem, 0x55555555, sizeof(size));
 }
 
 void* pool_malloc(pool_t* p, size_t size) {
@@ -17,7 +19,7 @@ void* pool_malloc(pool_t* p, size_t size) {
     }
 
     // アライメント単位で切り上げ
-    if (size & alignment - 1) {
+    if (size & (alignment - 1)) {
         size = (size & ~(alignment - 1)) + alignment;
     }
 

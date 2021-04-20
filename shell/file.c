@@ -85,9 +85,21 @@ file_directory_t* file_directory_add(file_directory_t* dp,
 file_header_t* file_directory_find(file_directory_t* dp, const char* name) {
     if (!dp || !name) return NULL;
 
-    return (file_header_t*)bsearch(
-        name, &dp->files[0], dp->used, sizeof(file_header_t*),
-        (int (*)(const void*, const void*))file_header_compare_name);
+    //二分探索
+    size_t begin = 0, mid, end = dp->used - 1;
+    while (end - begin > 0) {
+        mid = (begin + end) >> 1;
+        int cmp = strcmp(dp->files[mid]->name, name);
+        if (cmp == 0) {
+            return dp->files[mid];
+        }
+        if (cmp > 0) {
+            end = mid - 1;
+        } else {
+            begin = mid + 1;
+        }
+    }
+    return NULL;
 }
 
 #pragma endregion

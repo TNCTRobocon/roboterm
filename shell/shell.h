@@ -3,7 +3,6 @@
 #include "fs.h"
 typedef struct shell {
     fs_t* fs;
-    file_directory_t* root;
 } shell_t;
 
 
